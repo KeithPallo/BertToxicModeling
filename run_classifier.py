@@ -609,6 +609,7 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
 
     per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
     loss = tf.reduce_mean(per_example_loss)
+    loss = tf.Print(loss, [loss])
 
     return (loss, per_example_loss, logits, probabilities)
 
@@ -670,11 +671,14 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
       train_op = optimization.create_optimizer(
           total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
+      
+      logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=10)
 
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
           train_op=train_op,
+          training_hooks=[logging_hook],
           scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.EVAL:
 
@@ -723,8 +727,7 @@ def input_fn_builder(features, seq_length, is_training, drop_remainder):
 
   def input_fn(params):
     """The actual input function."""
-    batch_size = params["batch_size"]
-
+    batch_size=32
     num_examples = len(features)
 
     # This is for demo purposes and does NOT scale to large data sets. We do
